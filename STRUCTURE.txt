@@ -1,0 +1,21 @@
+gst-invoice/
+├── pom.xml
+├── plan.md
+└── src/main/
+    ├── java/com/yourname/gst/
+    │   ├── GstApplication.java
+    │   ├── Models.java
+    │   ├── Repos.java
+    │   ├── Security.java
+    │   ├── AdminController.java
+    │   ├── ShopController.java
+    │   ├── ScanController.java
+    │   ├── GstService.java
+    │   ├── ScanService.java
+    │   └── PdfService.java
+    └── resources/
+        ├── application.properties
+        └── static/
+            ├── admin.html
+            ├── app.html
+            └── app.js

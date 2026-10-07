@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GST Invoice Processor - Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>GST Invoice Processor - Admin Panel</h1>
+
+        <!-- Alerts -->
+        <div id="alert-container"></div>
+
+        <!-- Admin Login Redirect (handled by Spring Security) -->
+        <div id="login-info">
+            <p>Please log in via the admin login page to access admin functionality.</p>
+            <p><a href="/admin/login" class="btn btn-primary">Go to Admin Login</a></p>
+        </div>
+
+        <!-- Shops Management -->
+        <div id="shops-management" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Shops Management</h2>
+                <button id="btn-create-shop" class="btn btn-success">Create New Shop</button>
+            </div>
+
+            <!-- Shops Table -->
+            <div class="table-responsive mb-4">
+                <table class="table table-striped table-bordered" id="shops-table">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Code (Short ID)</th>
+                            <th>Name</th>
+                            <th>Active</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Shop rows will be inserted here via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Create/Edit Shop Form -->
+            <div id="shop-form-container" style="display: none;">
+                <h3 id="shop-form-title">Create Shop</h3>
+                <form id="shop-form">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="shop-code" class="form-label">Shop Code (Short ID)</label>
+                                <input type="text" class="form-control" id="shop-code" placeholder="Enter short identifier (e.g., sharma01)" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="shop-name" class="form-label">Shop Name</label>
+                                <input type="text" class="form-control" id="shop-name" placeholder="Enter shop name" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="shop-config" class="form-label">Configuration (JSON)</label>
+                        <textarea class="form-control" id="shop-config" rows="6" placeholder='Enter shop configuration as JSON'></textarea>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="shop-active">
+                        <label class="form-check-label" for="shop-active">Active</label>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <button type="submit" class="btn btn-primary" id="shop-form-submit">Save Shop</button>
+                        <button type="button" class="btn btn-secondary" id="btn-cancel-shop">Cancel</button>
+                        <input type="hidden" id="shop-id">
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tokens Management -->
+            <div id="tokens-management" style="display: none;">
+                <h3>Tokens for Shop: <span id="tokens-shop-name"></span></h3>
+                <div class="mb-3">
+                    <button id="btn-generate-token" class="btn btn-warning">Generate New Token</button>
+                    <button id="btn-back-to-shops" class="btn btn-outline-secondary">Back to Shops</button>
+                </div>
+
+                <!-- Tokens Table -->
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered" id="tokens-table">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Token (Preview)</th>
+                                <th>Expires At</th>
+                                <th>Revoked</th>
+                                <th>Last Used At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Token rows will be inserted here via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Token Modal -->
+    <div class="modal fade" id="tokenModal" tabindex="-1" aria-labelledby="tokenModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tokenModalLabel">Generated Token</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <strong>Important:</strong> This token will only be shown once. Make sure to copy it now.
+                    </div>
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" id="token-value" readonly>
+                        <button class="btn btn-outline-secondary" type="button" id="btn-copy-token">Copy</button>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Shop Link:</label>
+                        <input type="text" class="form-control" id="shop-link" readonly>
+                    </div>
+                    <small class="text-muted">Use this link to access the shop interface: <code>https://your-domain.com/app.html#token=XXXX</code></small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // API base URL
+        const API_BASE = '';
+        let currentShopId = null;
+        let currentShopName = '';
+
+        // DOM Elements
+        const alertContainer = document.getElementById('alert-container');
+        const loginInfo = document.getElementById('login-info');
+        const shopsManagement = document.getElementById('shops-management');
+        const shopFormContainer = document.getElementById('shop-form-container');
+        const tokensManagement = document.getElementById('tokens-management');
+        const shopsTableBody = document.querySelector('#shops-table tbody');
+        const tokensTableBody = document.querySelector('#tokens-table tbody');
+        const shopForm = document.getElementById('shop-form');
+        const shopFormTitle = document.getElementById('shop-form-title');
+        const shopFormSubmit = document.getElementById('shop-form-submit');
+        const btnCancelShop = document.getElementById('btn-cancel-shop');
+        const btnCreateShop = document.getElementById('btn-create-shop');
+        const btnGenerateToken = document.getElementById('btn-generate-token');
+        const btnBackToShops = document.getElementById('btn-back-to-shops');
+        const tokensShopName = document.getElementById('tokens-shop-name');
+        const tokenValueInput = document.getElementById('token-value');
+        const shopLinkInput = document.getElementById('shop-link');
+        const btnCopyToken = document.getElementById('btn-copy-token');
+
+        // Helper function to get CSRF token from cookie
+        function getCsrfToken() {
+            const name = "XSRF-TOKEN=";
+            const decodedCookie = decodeURIComponent(document.cookie);
+            const cookieArray = decodedCookie.split(';');
+            for(let i = 0; i < cookieArray.length; i++) {
+                let cookie = cookieArray[i];
+                while (cookie.charAt(0) == ' ') {
+                    cookie = cookie.substring(1);
+                }
+                if (cookie.indexOf(name) == 0) {
+                    return cookie.substring(name.length, cookie.length);
+                }
+            }
+            return "";
+        }
+
+        // Initialize the admin panel
+        function init() {
+            // Check if user is logged in by trying to fetch shops
+            fetchShops();
+
+            // Event listeners
+            btnCreateShop.addEventListener('click', () => showShopForm('create'));
+            btnCancelShop.addEventListener('click', () => hideShopForm());
+            shopForm.addEventListener('submit', handleShopFormSubmit);
+            btnGenerateToken.addEventListener('click', generateToken);
+            btnBackToShops.addEventListener('click', backToShops);
+            btnCopyToken.addEventListener('click', copyToken);
+        }
+
+        // Show alert message
+        function showAlert(message, type = 'info') {
+            alertContainer.innerHTML = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                const alerts = alertContainer.querySelectorAll('.alert');
+                alerts.forEach(alert => alert.remove());
+            }, 5000);
+        }
+
+        // Fetch shops from API
+        function fetchShops() {
+            fetch(`${API_BASE}/admin-api/shops`, {
+                headers: {
+                    'X-XSRF-TOKEN': getCsrfToken()
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(shops => {
+                renderShopsTable(shops);
+                loginInfo.style.display = 'none';
+                shopsManagement.style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error fetching shops:', error);
+                showAlert('Failed to load shops. Please make sure you are logged in.', 'danger');
+                loginInfo.style.display = 'block';
+                shopsManagement.style.display = 'none';
+            });
+        }
+
+        // Render shops table
+        function renderShopsTable(shops) {
+            shopsTableBody.innerHTML = '';
+
+            if (shops.length === 0) {
+                shopsTableBody.innerHTML = '<tr><td colspan="5" class="text-center">No shops found</td></tr>';
+                return;
+            }
+
+            shops.forEach(shop => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${shop.id}</td>
+                    <td>${shop.code || '-'}</td>
+                    <td>${shop.name || '-'}</td>
+                    <td>${shop.active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-outline-primary btn-edit-shop" data-id="${shop.id}" data-name="${shop.name}" data-code="${shop.code}" data-config='${JSON.stringify(shop.config)}' data-active="${shop.active}">Edit</button>
+                            <button class="btn btn-sm btn-outline-danger btn-view-tokens" data-id="${shop.id}" data-name="${shop.name}">Tokens</button>
+                        </div>
+                    </td>
+                `;
+                shopsTableBody.appendChild(row);
+            });
+
+            // Add event listeners to buttons
+            document.querySelectorAll('.btn-edit-shop').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const id = btn.getAttribute('data-id');
+                    const name = btn.getAttribute('data-name');
+                    const code = btn.getAttribute('data-code');
+                    const config = JSON.parse(btn.getAttribute('data-config'));
+                    const active = btn.getAttribute('data-active') === 'true';
+                    showShopForm('edit', { id, name, code, config, active });
+                });
+            });
+
+            document.querySelectorAll('.btn-view-tokens').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const shopId = btn.getAttribute('data-id');
+                    const shopName = btn.getAttribute('data-name');
+                    fetchShopTokens(shopId, shopName);
+                });
+            });
+        }
+
+        // Show shop form (create or edit)
+        function showShopForm(mode, shopData = null) {
+            currentShopId = null;
+
+            if (mode === 'create') {
+                shopFormTitle.textContent = 'Create Shop';
+                shopForm.reset();
+                document.getElementById('shop-active').checked = true;
+                // Set sample config
+                const sampleConfig = {
+                    "shopName": "Sample Shop",
+                    "gstin": "27ABCDE1234F1Z5",
+                    "stateCode": "27",
+                    "address": "Sample Address, City",
+                    "phone": "9876543210",
+                    "invoicePrefix": "SMP",
+                    "financialYearStart": "04",
+                    "defaultGstRate": 18,
+                    "billFields": [
+                        { "key": "vehicleNo", "label": "Vehicle No", "type": "text", "required": false },
+                        { "key": "paymentMode", "label": "Payment Mode", "type": "select", "options": ["Cash", "UPI", "Card"] }
+                    ],
+                    "productFields": [
+                        { "key": "batchNo", "label": "Batch No", "type": "text" },
+                        { "key": "expiry", "label": "Expiry", "type": "date" }
+                    ],
+                    "scanFields": ["supplierName", "supplierGstin", "invoiceNo", "invoiceDate", "taxableAmount", "cgst", "sgst", "igst", "total"],
+                    "limits": { "scansPerDay": 50 }
+                };
+                document.getElementById('shop-config').value = JSON.stringify(sampleConfig, null, 2);
+            } else if (mode === 'edit' && shopData) {
+                shopFormTitle.textContent = `Edit Shop: ${shopData.name}`;
+                currentShopId = shopData.id;
+                document.getElementById('shop-code').value = shopData.code || '';
+                document.getElementById('shop-name').value = shopData.name || '';
+                document.getElementById('shop-config').value = JSON.stringify(shopData.config, null, 2);
+                document.getElementById('shop-active').checked = shopData.active;
+            }
+
+            shopFormContainer.style.display = 'block';
+            shopsManagement.style.display = 'none';
+        }
+
+        // Hide shop form
+        function hideShopForm() {
+            shopFormContainer.style.display = 'none';
+            shopsManagement.style.display = 'block';
+        }
+
+        // Handle shop form submission
+        function handleShopFormSubmit(e) {
+            e.preventDefault();
+
+            const shopData = {
+                code: document.getElementById('shop-code').value.trim(),
+                name: document.getElementById('shop-name').value.trim(),
+                config: JSON.parse(document.getElementById('shop-config').value),
+                active: document.getElementById('shop-active').checked
+            };
+
+            // Validate required fields
+            if (!shopData.code || !shopData.name) {
+                showAlert('Shop code and name are required', 'warning');
+                return;
+            }
+
+            let url = `${API_BASE}/admin-api/shops`;
+            let method = 'POST';
+
+            if (currentShopId) {
+                url = `${API_BASE}/admin-api/shops/${currentShopId}`;
+                method = 'PUT';
+            }
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-XSRF-TOKEN': getCsrfToken()
+                },
+                body: JSON.stringify(shopData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text || `HTTP error! status: ${response.status}`); });
+                }
+                return response.json();
+            })
+            .then(() => {
+                showAlert('Shop saved successfully', 'success');
+                hideShopForm();
+                fetchShops();
+            })
+            .catch(error => {
+                console.error('Error saving shop:', error);
+                showAlert(`Failed to save shop: ${error.message}`, 'danger');
+            });
+        }
+
+        // Fetch tokens for a shop
+        function fetchShopTokens(shopId, shopName) {
+            currentShopId = shopId;
+            currentShopName = shopName;
+
+            fetch(`${API_BASE}/admin-api/shops/${shopId}/tokens`, {
+                headers: {
+                    'X-XSRF-TOKEN': getCsrfToken()
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(tokens => {
+                renderTokensTable(tokens);
+                tokensShopName.textContent = shopName;
+                shopsManagement.style.display = 'none';
+                tokensManagement.style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error fetching tokens:', error);
+                showAlert('Failed to load tokens', 'danger');
+            });
+        }
+
+        // Render tokens table
+        function renderTokensTable(tokens) {
+            tokensTableBody.innerHTML = '';
+
+            if (tokens.length === 0) {
+                tokensTableBody.innerHTML = '<tr><td colspan="6" class="text-center">No tokens found</td></tr>';
+                return;
+            }
+
+            tokens.forEach(token => {
+                const row = document.createElement('tr');
+                const tokenPreview = token.tokenHash ? `${token.tokenHash.substring(0, 8)}...${token.tokenHash.substring(token.tokenHash.length - 4)}` : 'N/A';
+                const expiresAt = token.expiresAt ? new Date(token.expiresAt).toLocaleString() : 'N/A';
+                const lastUsedAt = token.lastUsedAt ? new Date(token.lastUsedAt).toLocaleString() : 'Never';
+
+                row.innerHTML = `
+                    <td>${token.id}</td>
+                    <td>${tokenPreview}</td>
+                    <td>${expiresAt}</td>
+                    <td>${token.revoked ? '<span class="badge bg-danger">Yes</span>' : '<span class="badge bg-success">No</span>'}</td>
+                    <td>${lastUsedAt}</td>
+                    <td>
+                        ${!token.revoked ? `<button class="btn btn-sm btn-outline-danger btn-revoke-token" data-id="${token.id}">Revoke</button>` : ''}
+                    </td>
+                `;
+                tokensTableBody.appendChild(row);
+            });
+
+            // Add event listeners to revoke buttons
+            document.querySelectorAll('.btn-revoke-token').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tokenId = btn.getAttribute('data-id');
+                    revokeToken(tokenId);
+                });
+            });
+        }
+
+        // Generate token for current shop
+        function generateToken() {
+            if (!currentShopId) {
+                showAlert('No shop selected', 'warning');
+                return;
+            }
+
+            fetch(`${API_BASE}/admin-api/shops/${currentShopId}/tokens`, {
+                method: 'POST',
+                headers: {
+                    'X-XSRF-TOKEN': getCsrfToken()
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text || `HTTP error! status: ${response.status}`); });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Show token in modal
+                tokenValueInput.value = data.token; // Assuming the response contains the plain token
+                const baseUrl = window.location.origin;
+                shopLinkInput.value = `${baseUrl}/app.html#token=${data.token}`;
+
+                const tokenModal = new bootstrap.Modal(document.getElementById('tokenModal'));
+                tokenModal.show();
+            })
+            .catch(error => {
+                console.error('Error generating token:', error);
+                showAlert(`Failed to generate token: ${error.message}`, 'danger');
+            });
+        }
+
+        // Revoke token
+        function revokeToken(tokenId) {
+            if (!confirm('Are you sure you want to revoke this token? This action cannot be undone.')) {
+                return;
+            }
+
+            fetch(`${API_BASE}/admin-api/tokens/${tokenId}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-XSRF-TOKEN': getCsrfToken()
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text || `HTTP error! status: ${response.status}`); });
+                }
+                return response.json();
+            })
+            .then(() => {
+                showAlert('Token revoked successfully', 'success');
+                // Refresh tokens table
+                fetchShopTokens(currentShopId, currentShopName);
+            })
+            .catch(error => {
+                console.error('Error revoking token:', error);
+                showAlert(`Failed to revoke token: ${error.message}`, 'danger');
+            });
+        }
+
+        // Copy token to clipboard
+        function copyToken() {
+            tokenValueInput.select();
+            document.execCommand('copy');
+            showAlert('Token copied to clipboard!', 'success');
+        }
+
+        // Back to shops list
+        function backToShops() {
+            tokensManagement.style.display = 'none';
+            shopsManagement.style.display = 'block';
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

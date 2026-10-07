@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GST Invoice Processor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">GST Invoice Processor</a>
+            <div id="shop-name-display" class="navbar-text ms-auto">
+                <!-- Shop name will be displayed here after token validation -->
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div id="app-content">
+            <!-- Tabbed interface -->
+            <ul class="nav nav-tabs" id="appTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="products-tab" data-bs-toggle="tab" data-bs-target="#products-tab-pane" type="button" role="tab" aria-controls="products-tab-pane" aria-selected="true">Products</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="newbill-tab" data-bs-toggle="tab" data-bs-target="#newbill-tab-pane" type="button" role="tab" aria-controls="newbill-tab-pane" aria-selected="false">New Bill</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="bills-tab" data-bs-toggle="tab" data-bs-target="#bills-tab-pane" type="button" role="tab" aria-controls="bills-tab-pane" aria-selected="false">Bills</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="scan-tab" data-bs-toggle="tab" data-bs-target="#scan-tab-pane" type="button" role="tab" aria-controls="scan-tab-pane" aria-selected="false">Scan</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="reports-tab" data-bs-toggle="tab" data-bs-target="#reports-tab-pane" type="button" role="tab" aria-controls="reports-tab-pane" aria-selected="false">Reports</button>
+                </li>
+            </ul>
+            <div class="tab-content mt-3" id="appTabsContent">
+                <!-- Products Tab -->
+                <div class="tab-pane fade show active" id="products-tab-pane" role="tabpanel" aria-labelledby="products-tab" tabindex="0">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2>Products</h2>
+                        <button class="btn btn-success" id="btn-add-product">Add Product</button>
+                    </div>
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" id="product-search" placeholder="Search products...">
+                        <button class="btn btn-outline-secondary" id="btn-search-product" type="button">Search</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-bordered" id="products-table">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Price</th>
+                                    <th>HSN Code</th>
+                                    <th>Unit</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Product rows will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- New Bill Tab -->
+                <div class="tab-pane fade" id="newbill-tab-pane" role="tabpanel" aria-labelledby="newbill-tab" tabindex="0">
+                    <form id="newBillForm">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="newbill-customer-name" class="form-label">Customer Name</label>
+                                    <input type="text" class="form-control" id="newbill-customer-name" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="newbill-customer-gstin" class="form-label">Customer GSTIN</label>
+                                    <input type="text" class="form-control" id="newbill-customer-gstin" placeholder="Optional">
+                                    <div id="newbill-gstin-error" class="invalid-feedback d-none"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="newbill-customer-address" class="form-label">Customer Address</label>
+                            <textarea class="form-control" id="newbill-customer-address" rows="2"></textarea>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="newbill-customer-state-code" class="form-label">Customer State Code</label>
+                                    <input type="text" class="form-control" id="newbill-customer-state-code" maxlength="2" placeholder="e.g., 27 for Maharashtra">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="newbill-place-of-supply" class="form-label">Place of Supply State Code</label>
+                                    <input type="text" class="form-control" id="newbill-place-of-supply" maxlength="2" value="27" readonly>
+                                    <div class="form-text">Auto-filled from shop configuration</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Custom Fields Section -->
+                        <div id="newbill-custom-fields-section">
+                            <div class="mb-3">
+                                <label for="newbill-custom-fields-heading" class="form-label">Custom Fields</label>
+                                <div id="newbill-custom-fields-container">
+                                    <!-- Custom fields will be dynamically inserted here based on shop configuration -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <h5>Line Items</h5>
+                        <div class="mb-3">
+                            <button class="btn btn-outline-primary" type="button" id="btn-add-line-item">Add Line Item</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-bordered" id="line-items-table">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>S.No</th>
+                                        <th>Description</th>
+                                        <th>HSN Code</th>
+                                        <th>Quantity</th>
+                                        <th>Rate</th>
+                                        <th>Discount %</th>
+                                        <th>GST Rate</th>
+                                        <th>Amount</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="line-items-table-body">
+                                    <!-- Line item rows will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <button class="btn btn-outline-secondary" type="button" id="btn-calculate-totals">Calculate Totals</button>
+                            </div>
+                            <div class="col-md-6 text-md-end">
+                                <button class="btn btn-success" type="submit">Submit Bill</button>
+                            </div>
+                        </div>
+
+                        <div id="newbill-totals-section" class="mb-4">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <table class="table table-borderless">
+                                        <tr>
+                                            <td><strong>Taxable Amount:</strong></td>
+                                            <td id="newbill-taxable-amount" class="text-end">0.00</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>CGST:</strong></td>
+                                            <td id="newbill-cgst-amount" class="text-end">0.00</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>SGST:</strong></td>
+                                            <td id="newbill-sgst-amount" class="text-end">0.00</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>IGST:</strong></td>
+                                            <td id="newbill-igst-amount" class="text-end">0.00</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Round Off:</strong></td>
+                                            <td id="newbill-round-off-amount" class="text-end">0.00</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Total Amount:</strong></td>
+                                            <td id="newbill-total-amount" class="text-end fw-bold">0.00</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Amount in Words:</strong></td>
+                                            <td id="newbill-total-amount-words" class="text-end fst-italic"></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="newbill-alert" class="mb-3"></div>
+                    </form>
+                </div>
+
+                <!-- Bills Tab -->
+                <div class="tab-pane fade" id="bills-tab-pane" role="tabpanel" aria-labelledby="bills-tab" tabindex="0">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="bills-date-from" class="form-label">From Date</label>
+                                <input type="date" class="form-control" id="bills-date-from">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="bills-date-to" class="form-label">To Date</label>
+                                <input type="date" class="form-control" id="bills-date-to">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="bills-search" class="form-label">Search (Customer Name/Invoice Number)</label>
+                                <input type="text" class="form-control" id="bills-search" placeholder="Enter search term">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <button class="btn btn-outline-primary" type="button" id="btn-filter-bills">Filter Bills</button>
+                        <button class="btn btn-outline-secondary" type="button" id="btn-reset-filters">Reset Filters</button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped table-bordered" id="bills-table">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Invoice Number</th>
+                                    <th>Date</th>
+                                    <th>Customer Name</th>
+                                    <th>Customer GSTIN</th>
+                                    <th>Total Amount</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bills-table-body">
+                                <!-- Bill rows will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div id="bills-alert" class="mb-3"></div>
+                </div>
+
+                <!-- Scan Tab -->
+                <div class="tab-pane fade" id="scan-tab-pane" role="tabpanel" aria-labelledby="scan-tab" tabindex="0">
+                    <div class="alert alert-info">
+                        <h4>Coming Soon</h4>
+                        <p>Scan functionality is under development.</p>
+                    </div>
+                </div>
+
+                <!-- Reports Tab -->
+                <div class="tab-pane fade" id="reports-tab-pane" role="tabpanel" aria-labelledby="reports-tab" tabindex="0">
+                    <div class="alert alert-info">
+                        <h4>Coming Soon</h4>
+                        <p>Reports functionality is under development.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Product Modal -->
+    <div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="productModalLabel">Add Product</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="productForm">
+                        <div class="mb-3">
+                            <label for="product-name" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="product-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="product-description" class="form-label">Description</label>
+                            <input type="text" class="form-control" id="product-description">
+                        </div>
+                        <div class="mb-3">
+                            <label for="product-price" class="form-label">Price</label>
+                            <input type="number" class="form-control" id="product-price" step="0.01" min="0" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="product-hsn" class="form-label">HSN Code</label>
+                            <input type="text" class="form-control" id="product-hsn" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="product-unit" class="form-label">Unit</label>
+                            <input type="text" class="form-control" id="product-unit" required>
+                        </div>
+                        <!-- Dynamic fields will be inserted here -->
+                        <div id="dynamic-fields-container">
+                            <!-- Dynamic fields will be rendered here based on shop configuration -->
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="btn-save-product">Save Product</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
